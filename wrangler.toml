@@ -1,3 +1,7 @@
 name = "blog-parts"
 main = "src/index.ts"
 compatibility_date = "2022-07-07"
+
+kv_namespaces = [
+    { binding = "SITES", id = "48d11c5021724ac58844fac3c570438a", preview_id = "89f05650edf74b64895a586e9f1db918" },
+]
