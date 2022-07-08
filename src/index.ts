@@ -30,7 +30,7 @@ export default {
 	},
 };
 
-const ttl = 3600;
+const ttl = 86400;
 
 async function handleRequest(
   request: Request,
