@@ -158,6 +158,7 @@ function renderHtml(parseResult: ParseResult): Response {
       #embed .thumbnail {
         width: 100px;
         height: 100px;
+        object-fit: contain;
       }
       #embed .site_name {
         color: #333;
@@ -240,7 +241,7 @@ function extractTitleFromBody(bodyText: string): string {
   return "";
 }
 
-const descriptionRe = new RegExp(`<meta name="description" content="(.*?)"\\s*/>`);
+const descriptionRe = new RegExp(`<meta name="description" content="(.*?)"\\s*/?>`);
 function extractDescriptionFromBody(bodyText: string): string {
   const result = descriptionRe.exec(bodyText);
   if (result) {
@@ -265,10 +266,10 @@ function extractIconUrlFromBody(bodyText: string, url: URL): string {
   return "";
 }
 
-const ogSiteNameRe = new RegExp(`<meta property="og:site_name" content="(.*?)"\\s*/>`);
-const ogTitleRe = new RegExp(`<meta property="og:title" content="(.*?)"\\s*/>`);
-const ogDescriptionRe = new RegExp(`<meta property="og:description" content="(.*?)"\\s*/>`);
-const ogImageRe = new RegExp(`<meta property="og:image" content="(.*?)"\\s*/>`);
+const ogSiteNameRe = new RegExp(`<meta property="og:site_name" content="(.*?)"\\s*/?>`);
+const ogTitleRe = new RegExp(`<meta property="og:title" content="(.*?)"\\s*/?>`);
+const ogDescriptionRe = new RegExp(`<meta property="og:description" content="(.*?)"\\s*/?>`);
+const ogImageRe = new RegExp(`<meta property="og:image" content="(.*?)"\\s*/?>`);
 function attachOgpFromBody(bodyText: string, parseResult: ParseResult) {
   const siteNameResult = ogSiteNameRe.exec(bodyText);
   if (siteNameResult) {
