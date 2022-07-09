@@ -164,7 +164,7 @@ function renderHtml(parseResult: ParseResult): Response {
         width: 16px;
         height: 16px;
         object-fit: contain;
-        vertical-align: middle;
+        vertical-align: bottom;
       }
       #embed .site_name {
         color: #333;
