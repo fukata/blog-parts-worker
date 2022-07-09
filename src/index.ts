@@ -114,14 +114,15 @@ function renderHtml(parseResult: ParseResult): Response {
       * {
         margin: 0;
         padding: 0;
+        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
       }
       #embed {
         background-color: white;
         width: 100%;
         height: 150px;
         display: table;
-        border: #ccc 1px solid;
-        padding: 8px;
+        border: #dedede 1px solid;
+        padding: 10px;
         box-sizing: border-box;
       }
       #embed .row {
@@ -130,7 +131,7 @@ function renderHtml(parseResult: ParseResult): Response {
       #embed .left {
         display: table-cell;
         vertical-align: top;
-        padding-right: 8px;
+        padding-right: 10px;
       }
       #embed .right {
         display: table-cell;
@@ -150,7 +151,7 @@ function renderHtml(parseResult: ParseResult): Response {
         overflow: hidden;
         font-size: small;
         color: #333;
-        max-width: 480px;
+        max-width: calc(100vw - 140px);
         text-overflow: ellipsis;
         margin-bottom: 1em;
       }
