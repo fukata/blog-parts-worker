@@ -250,7 +250,7 @@ function extractTitleFromBody(bodyText: string): string {
   return "";
 }
 
-const descriptionRe = new RegExp(`<meta name="description" content="(.*?)"\\s*/?>`);
+const descriptionRe = new RegExp(`<meta name=['"]?description['"]? content=['"]?(.*?)['"]?\\s*/?>`);
 function extractDescriptionFromBody(bodyText: string): string {
   const result = descriptionRe.exec(bodyText);
   if (result) {
@@ -261,8 +261,8 @@ function extractDescriptionFromBody(bodyText: string): string {
 }
 
 const iconUrlReList = [
-  new RegExp(`<link rel="?.*icon.*"? type="?.+"? href="?(.+)"?\\s*/?>`),
-  new RegExp(`<link href="?(.+)"? rel="?.*icon.*"? type="?.+"?\\s*/?>`),
+  new RegExp(`<link rel=['"]?.*icon.*['"]? type=['"]?.+['"]? href=['"]?(.+)['"]?\\s*/?>`),
+  new RegExp(`<link href=['"]?(.+)['"]? rel=['"]?.*icon.*['"]? type=['"]?.+['"]?\\s*/?>`),
 ];
 function extractIconUrlFromBody(bodyText: string, url: URL): string {
   const result = execAnyRegExpList(bodyText, iconUrlReList);
@@ -278,10 +278,10 @@ function extractIconUrlFromBody(bodyText: string, url: URL): string {
   }
 }
 
-const ogSiteNameRe = new RegExp(`<meta property="og:site_name" content="(.*?)"\\s*/?>`);
-const ogTitleRe = new RegExp(`<meta property="og:title" content="(.*?)"\\s*/?>`);
-const ogDescriptionRe = new RegExp(`<meta property="og:description" content="(.*?)"\\s*/?>`);
-const ogImageRe = new RegExp(`<meta property="og:image" content="(.*?)"\\s*/?>`);
+const ogSiteNameRe = new RegExp(`<meta property=['"]?og:site_name['"]? content=['"]?(.*?)['"]?\\s*/?>`);
+const ogTitleRe = new RegExp(`<meta property=['"]?og:title['"]? content=['"]?(.*?)['"]?\\s*/?>`);
+const ogDescriptionRe = new RegExp(`<meta property=['"]?og:description['"]? content=['"]?(.*?)['"]?\\s*/?>`);
+const ogImageRe = new RegExp(`<meta property=['"]?og:image['"]? content=['"]?(.*?)['"]?\\s*/?>`);
 function attachOgpFromBody(bodyText: string, parseResult: ParseResult) {
   const siteNameResult = ogSiteNameRe.exec(bodyText);
   if (siteNameResult) {
@@ -314,7 +314,7 @@ function execAnyRegExpList(bodyText: string, regexpList: RegExp[]): RegExpExecAr
   for (let i=0; i<regexpList.length; i++) {
     const re = regexpList[i];
     const result = re.exec(bodyText);
-    console.log("re=%o, result=%o", re, result);
+    // console.log("re=%o, result=%o", re, result);
     if (result) {
       return result;
     }
