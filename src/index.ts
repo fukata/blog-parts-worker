@@ -118,7 +118,6 @@ function renderHtml(parseResult: ParseResult): Response {
       #embed {
         background-color: white;
         width: 100%;
-        max-width: 600px;
         height: 150px;
         display: table;
         border: #ccc 1px solid;
