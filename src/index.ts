@@ -160,6 +160,12 @@ function renderHtml(parseResult: ParseResult): Response {
         height: 100px;
         object-fit: contain;
       }
+      #embed .icon {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+        vertical-align: middle;
+      }
       #embed .site_name {
         color: #333;
         font-size: small;
@@ -180,7 +186,10 @@ function renderHtml(parseResult: ParseResult): Response {
           ${rightHtml}
         </div>
         <div class="row meta">
-          <div class="site_name">${parseResult.siteName}</div>  
+          <div class="site_name">
+            <img src="${parseResult.iconUrl}" class="icon" />
+            ${parseResult.siteName}
+          </div>
         </div>
       </div>
     </a>
@@ -251,19 +260,22 @@ function extractDescriptionFromBody(bodyText: string): string {
   return "";
 }
 
-const iconUrlRe = new RegExp(`<link rel="shortcut icon" type=".+" href="(.*?)"/?>`);
+const iconUrlReList = [
+  new RegExp(`<link rel="?.*icon.*"? type="?.+"? href="?(.+)"?\\s*/?>`),
+  new RegExp(`<link href="?(.+)"? rel="?.*icon.*"? type="?.+"?\\s*/?>`),
+];
 function extractIconUrlFromBody(bodyText: string, url: URL): string {
-  const result = iconUrlRe.exec(bodyText);
-  if (result) {
-    const iconUrl = result[1];
-    if (iconUrl.match(/^http/)) {
-      return iconUrl;
-    } else {
-      return `${url.protocol}//${url.host}${iconUrl}`;
-    }
+  const result = execAnyRegExpList(bodyText, iconUrlReList);
+  if (!result) {
+    return "";
   }
 
-  return "";
+  const iconUrl = result[1];
+  if (iconUrl.match(/^http/)) {
+    return iconUrl;
+  } else {
+    return `${url.protocol}//${url.host}${iconUrl}`;
+  }
 }
 
 const ogSiteNameRe = new RegExp(`<meta property="og:site_name" content="(.*?)"\\s*/?>`);
@@ -296,4 +308,17 @@ function attachOgpFromBody(bodyText: string, parseResult: ParseResult) {
     parseResult.ogp = true;
     parseResult.extracted = true;
   }
+}
+
+function execAnyRegExpList(bodyText: string, regexpList: RegExp[]): RegExpExecArray | null {
+  for (let i=0; i<regexpList.length; i++) {
+    const re = regexpList[i];
+    const result = re.exec(bodyText);
+    console.log("re=%o, result=%o", re, result);
+    if (result) {
+      return result;
+    }
+  }
+
+  return null;
 }
