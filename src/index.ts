@@ -225,7 +225,7 @@ function parseBodyText(bodyText: string, url: URL): ParseResult {
     extracted: false,
     ogp: false,
   };
-  attachOgpFromBody(bodyText, result);
+  attachOgpFromBody(bodyText, result, url);
 
   if (result.title.length === 0) {
     result.title = extractTitleFromBody(bodyText);
@@ -270,19 +270,14 @@ function extractIconUrlFromBody(bodyText: string, url: URL): string {
     return "";
   }
 
-  const iconUrl = result[1];
-  if (iconUrl.match(/^http/)) {
-    return iconUrl;
-  } else {
-    return `${url.protocol}//${url.host}${iconUrl}`;
-  }
+  return toAbsoluteUrl(result[1], url);
 }
 
 const ogSiteNameRe = new RegExp(`<meta property=['"]?og:site_name['"]? content=['"]?(.*?)['"]?\\s*/?>`);
 const ogTitleRe = new RegExp(`<meta property=['"]?og:title['"]? content=['"]?(.*?)['"]?\\s*/?>`);
 const ogDescriptionRe = new RegExp(`<meta property=['"]?og:description['"]? content=['"]?(.*?)['"]?\\s*/?>`);
 const ogImageRe = new RegExp(`<meta property=['"]?og:image['"]? content=['"]?(.*?)['"]?\\s*/?>`);
-function attachOgpFromBody(bodyText: string, parseResult: ParseResult) {
+function attachOgpFromBody(bodyText: string, parseResult: ParseResult, url: URL) {
   const siteNameResult = ogSiteNameRe.exec(bodyText);
   if (siteNameResult) {
     parseResult.siteName = siteNameResult[1];
@@ -301,7 +296,7 @@ function attachOgpFromBody(bodyText: string, parseResult: ParseResult) {
 
   const imageResult = ogImageRe.exec(bodyText);
   if (imageResult) {
-    parseResult.thumbnailUrl = imageResult[1];
+    parseResult.thumbnailUrl = toAbsoluteUrl(imageResult[1], url);
   }
 
   if (parseResult.siteName.length > 0 && parseResult.title.length > 0 && parseResult.description.length > 0) {
@@ -321,4 +316,12 @@ function execAnyRegExpList(bodyText: string, regexpList: RegExp[]): RegExpExecAr
   }
 
   return null;
+}
+
+function toAbsoluteUrl(resourceUrl: string, siteUrl: URL): string {
+  if (resourceUrl.match(/^http/)) {
+    return resourceUrl;
+  } else {
+    return `${siteUrl.protocol}//${siteUrl.host}${resourceUrl}`;
+  }
 }
