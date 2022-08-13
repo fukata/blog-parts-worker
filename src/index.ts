@@ -59,6 +59,7 @@ async function handleRequest(
   if (siteResponse.body == null) {
     return new Response(`${url} is Not found`);
   }
+  console.log(`Site response status=${siteResponse.status}`);
 
   const reader = siteResponse.body.getReader();
   const decoder = new TextDecoder();
