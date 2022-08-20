@@ -18,6 +18,7 @@ export interface Env {
   //
   // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
   // MY_BUCKET: R2Bucket;
+  TTL: 'TTL',
 }
 
 export default {
@@ -29,8 +30,6 @@ export default {
     return handleRequest(request, env, ctx);
   },
 };
-
-const ttl = 86400;
 
 async function handleRequest(
   request: Request,
@@ -48,11 +47,13 @@ async function handleRequest(
     return new Response("Invalid specify url parameter.");
   }
 
-  const cachedSite = await env.SITES.get(siteUrl);
-  if (cachedSite != null) {
-    console.log(`cache hit. key=${siteUrl}`);
-    const parseResult = JSON.parse(cachedSite) as ParseResult;
-    return render(parseResult, url);
+  if (env.TTL > -1) {
+    const cachedSite = await env.SITES.get(siteUrl);
+    if (cachedSite != null) {
+      console.log(`cache hit. key=${siteUrl}`);
+      const parseResult = JSON.parse(cachedSite) as ParseResult;
+      return render(parseResult, url);
+    }
   }
 
   const siteResponse = await fetch(siteUrl);
@@ -61,29 +62,12 @@ async function handleRequest(
   }
   console.log(`Site response status=${siteResponse.status}`);
 
-  const reader = siteResponse.body.getReader();
-  const decoder = new TextDecoder();
-  let bodyText = ``;
-  const readChunk = async ({done, value}) => {
-    if (done) {
-      return;
-    }
+  const parseResult = await parseResponse(siteResponse, new URL(siteUrl));
 
-    bodyText += decoder.decode(value);
-    if (bodyText.includes("<body[^>]*>")) {
-      return;
-    }
-
-    const readResult = await reader.read();
-    await readChunk(readResult);
-  };
-  const readResult = await reader.read()
-  await readChunk(readResult);
-
-  bodyText = bodyText.replace(/\r?\n/g, '')
-  const parseResult = parseBodyText(bodyText, new URL(siteUrl));
-  await env.SITES.put(siteUrl, JSON.stringify(parseResult), {expirationTtl: ttl});
-  console.log(`store cache. key=${siteUrl}`);
+  if (env.TTL > -1) {
+    await env.SITES.put(siteUrl, JSON.stringify(parseResult), {expirationTtl: env.TTL});
+    console.log(`store cache. key=${siteUrl}`);
+  }
 
   return render(parseResult, url);
 }
@@ -211,113 +195,70 @@ type ParseResult = {
   description: string
   iconUrl: string
   thumbnailUrl?: string
-  extracted: boolean
-  ogp: boolean
 };
 
-function parseBodyText(bodyText: string, url: URL): ParseResult {
-  // console.log(`parseBodyText. bodyText=${bodyText}`);
-
+async function parseResponse(response: Response, url: URL): Promise<ParseResult> {
   const result: ParseResult = {
     linkUrl: url.toString(),
     siteName: url.host,
     title: "",
     description: "",
-    iconUrl: extractIconUrlFromBody(bodyText, url),
-    extracted: false,
-    ogp: false,
+    iconUrl: "",
   };
-  attachOgpFromBody(bodyText, result, url);
 
-  if (result.title.length === 0) {
-    result.title = extractTitleFromBody(bodyText);
-  }
-  if (result.description.length === 0) {
-    result.description = extractDescriptionFromBody(bodyText);
-  }
-  if (result.iconUrl.length === 0) {
+  const newResponse = new HTMLRewriter()
+    .on('link', {
+      element(element: Element): void | Promise<void> {
+        // console.log(`element. tagName=${element.tagName}, rel=${element.getAttribute("rel")}, href=${element.getAttribute("href")}}`);
+        if (!element.hasAttribute("rel")) {
+          return
+        }
+
+        const rel = <string>element.getAttribute("rel");
+        if (rel.indexOf('icon') > -1 && result.iconUrl === "") {
+          result.iconUrl = toAbsoluteUrl(<string>element.getAttribute("href"), url)
+        }
+      }
+    })
+    // .on('meta[property="og:site_name"]', {
+    //   element(element: Element): void | Promise<void> {
+    //     // console.log(`ogp. property=site_name, content=${element.getAttribute('content')}`);
+    //   }
+    // })
+    // .on('meta[property="og:url"]', {
+    //   element(element: Element): void | Promise<void> {
+    //     // console.log(`ogp. property=url, content=${element.getAttribute('content')}`);
+    //   }
+    // })
+    .on('meta[property="og:title"]', {
+      element(element: Element): void | Promise<void> {
+        if (element.hasAttribute('content')) {
+          result.title = <string>element.getAttribute('content');
+        }
+      }
+    })
+    .on('meta[property="og:image"]', {
+      element(element: Element): void | Promise<void> {
+        if (element.hasAttribute('content')) {
+          result.thumbnailUrl = toAbsoluteUrl(<string>element.getAttribute('content'), url);
+        }
+      }
+    })
+    .on('title', {
+      text(text: Text): void | Promise<void> {
+        if (result.title === "") {
+          result.title = text.text;
+        }
+      }
+    })
+    .transform(response);
+  await newResponse.text();
+
+  if (result.iconUrl === "") {
     result.iconUrl = `${url.protocol}//${url.host}/favicon.ico`;
   }
 
   return result;
-}
-
-const titleRe = new RegExp(`<title[^>]*>(.*?)</title>`);
-function extractTitleFromBody(bodyText: string): string {
-  const result = titleRe.exec(bodyText);
-  if (result) {
-    return result[1];
-  }
-
-  return "";
-}
-
-const descriptionRe = new RegExp(`<meta name=['"]?description['"]? content=['"]?(.*?)['"]?\\s*/?>`);
-function extractDescriptionFromBody(bodyText: string): string {
-  const result = descriptionRe.exec(bodyText);
-  if (result) {
-    return result[1];
-  }
-
-  return "";
-}
-
-const iconUrlReList = [
-  new RegExp(`<link rel=['"]?.*?icon.*?['"]?\\s*(?:type=['"]?.+?['"]?)?\\s*href=['"]?(.+?)['"]?\\s*/?>`),
-  new RegExp(`<link href=['"]?(.+)['"]?\\s*rel=['"]?.*icon.*['"]?\\s*type=['"]?.+?['"]?\\s*/?>`),
-];
-function extractIconUrlFromBody(bodyText: string, url: URL): string {
-  const result = execAnyRegExpList(bodyText, iconUrlReList);
-  if (!result) {
-    return "";
-  }
-
-  return toAbsoluteUrl(result[1], url);
-}
-
-const ogSiteNameRe = new RegExp(`<meta property=['"]?og:site_name['"]?\\s*content=['"]?(.+?)['"]?\\s*/?>`);
-const ogTitleRe = new RegExp(`<meta property=['"]?og:title['"]?\\s*content=['"]?(.+?)['"]?\\s*/?>`);
-const ogDescriptionRe = new RegExp(`<meta property=['"]?og:description['"]?\s*content=['"]?(.+?)['"]?\\s*/?>`);
-const ogImageRe = new RegExp(`<meta property=['"]?og:image['"]?\\s*content=['"]?(.+?)['"]?\\s*/?>`);
-function attachOgpFromBody(bodyText: string, parseResult: ParseResult, url: URL) {
-  const siteNameResult = ogSiteNameRe.exec(bodyText);
-  if (siteNameResult) {
-    parseResult.siteName = siteNameResult[1];
-  }
-
-  const titleResult = ogTitleRe.exec(bodyText);
-  if (titleResult) {
-    parseResult.title = titleResult[1];
-  }
-
-  const descriptionResult = ogDescriptionRe.exec(bodyText);
-  if (descriptionResult) {
-    parseResult.description = descriptionResult[1];
-  }
-
-
-  const imageResult = ogImageRe.exec(bodyText);
-  if (imageResult) {
-    parseResult.thumbnailUrl = toAbsoluteUrl(imageResult[1], url);
-  }
-
-  if (parseResult.siteName.length > 0 && parseResult.title.length > 0 && parseResult.description.length > 0) {
-    parseResult.ogp = true;
-    parseResult.extracted = true;
-  }
-}
-
-function execAnyRegExpList(bodyText: string, regexpList: RegExp[]): RegExpExecArray | null {
-  for (let i=0; i<regexpList.length; i++) {
-    const re = regexpList[i];
-    const result = re.exec(bodyText);
-    // console.log("re=%o, result=%o", re, result);
-    if (result) {
-      return result;
-    }
-  }
-
-  return null;
 }
 
 function toAbsoluteUrl(resourceUrl: string, siteUrl: URL): string {
