@@ -70,7 +70,7 @@ async function handleRequest(
     }
 
     bodyText += decoder.decode(value);
-    if (bodyText.includes("<body>")) {
+    if (bodyText.includes("<body[^>]*>")) {
       return;
     }
 
@@ -80,6 +80,7 @@ async function handleRequest(
   const readResult = await reader.read()
   await readChunk(readResult);
 
+  bodyText = bodyText.replace(/\r?\n/g, '')
   const parseResult = parseBodyText(bodyText, new URL(siteUrl));
   await env.SITES.put(siteUrl, JSON.stringify(parseResult), {expirationTtl: ttl});
   console.log(`store cache. key=${siteUrl}`);
@@ -241,7 +242,7 @@ function parseBodyText(bodyText: string, url: URL): ParseResult {
   return result;
 }
 
-const titleRe = new RegExp(`<title>(.*?)</title>`);
+const titleRe = new RegExp(`<title[^>]*>(.*?)</title>`);
 function extractTitleFromBody(bodyText: string): string {
   const result = titleRe.exec(bodyText);
   if (result) {
@@ -262,8 +263,8 @@ function extractDescriptionFromBody(bodyText: string): string {
 }
 
 const iconUrlReList = [
-  new RegExp(`<link rel=['"]?.*icon.*['"]? type=['"]?.+['"]? href=['"]?(.+)['"]?\\s*/?>`),
-  new RegExp(`<link href=['"]?(.+)['"]? rel=['"]?.*icon.*['"]? type=['"]?.+['"]?\\s*/?>`),
+  new RegExp(`<link rel=['"]?.*?icon.*?['"]?\\s*(?:type=['"]?.+?['"]?)?\\s*href=['"]?(.+?)['"]?\\s*/?>`),
+  new RegExp(`<link href=['"]?(.+)['"]?\\s*rel=['"]?.*icon.*['"]?\\s*type=['"]?.+?['"]?\\s*/?>`),
 ];
 function extractIconUrlFromBody(bodyText: string, url: URL): string {
   const result = execAnyRegExpList(bodyText, iconUrlReList);
@@ -274,10 +275,10 @@ function extractIconUrlFromBody(bodyText: string, url: URL): string {
   return toAbsoluteUrl(result[1], url);
 }
 
-const ogSiteNameRe = new RegExp(`<meta property=['"]?og:site_name['"]? content=['"]?(.*?)['"]?\\s*/?>`);
-const ogTitleRe = new RegExp(`<meta property=['"]?og:title['"]? content=['"]?(.*?)['"]?\\s*/?>`);
-const ogDescriptionRe = new RegExp(`<meta property=['"]?og:description['"]? content=['"]?(.*?)['"]?\\s*/?>`);
-const ogImageRe = new RegExp(`<meta property=['"]?og:image['"]? content=['"]?(.*?)['"]?\\s*/?>`);
+const ogSiteNameRe = new RegExp(`<meta property=['"]?og:site_name['"]?\\s*content=['"]?(.+?)['"]?\\s*/?>`);
+const ogTitleRe = new RegExp(`<meta property=['"]?og:title['"]?\\s*content=['"]?(.+?)['"]?\\s*/?>`);
+const ogDescriptionRe = new RegExp(`<meta property=['"]?og:description['"]?\s*content=['"]?(.+?)['"]?\\s*/?>`);
+const ogImageRe = new RegExp(`<meta property=['"]?og:image['"]?\\s*content=['"]?(.+?)['"]?\\s*/?>`);
 function attachOgpFromBody(bodyText: string, parseResult: ParseResult, url: URL) {
   const siteNameResult = ogSiteNameRe.exec(bodyText);
   if (siteNameResult) {
